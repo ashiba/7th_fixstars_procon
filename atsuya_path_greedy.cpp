@@ -13,6 +13,8 @@
 
 #include "json.hpp"
 
+using namespace std;
+
 constexpr const char* version	= "0.04";
 constexpr const char* revision = "a";
 constexpr const char* ver_date = "20181211";
@@ -54,6 +56,7 @@ private:
 public:
 	typedef std::map<int, Node*> nodes_t;
 		nodes_t nodes;
+		int groups;
 
 		Graph(){
 			groups = -1;
@@ -66,17 +69,18 @@ public:
 				groups = 0;
 				for(const auto& node: nodes){
 					if( used[node.first] == false ){
-						gropus++;
+						groups++;
 						used[node.first] = true;
 						count_groups_dfs(node.first, used);
 					}
 				}
 			}
+			return groups;
 		}
 
-		bool is_path_graph(int cur, vector<bool>& used){	//頂点curを含む連結なグラフはpath_graphかどうか
+		bool is_path_graph(int cur, vector<bool>& used){	//i頂点curを含む連結なグラフはpath_graphかどうか
 			bool ret = true;
-			if( nodes[cur].neighbors.size()>2 )return false;
+			if( nodes[cur]->neighbors.size()>2 )return false;
 			for(const auto& node: nodes[cur]->neighbors){
 				if( used[node->idx]==true )return false;
 				used[node->idx] = true;
@@ -112,12 +116,12 @@ std::vector<int> initial_positions(Graph* G, int num_units)
 	assert( G->num_groups()==1 );	//入力されるグラフは連結と仮定
 
 	vector<bool> used(G->nodes.size());
-	assert( G->is_path_graph(0)==false );	//入力されるグラフはpath_graphではない
+	assert( G->is_path_graph(0, used)==false );	//入力されるグラフはpath_graphではない
 
 	vector<int> idx_of_leaves;
 	for(const auto &node : G->nodes){
 		if( node.second->neighbors.size()<=1 ){
-			idx_of_leaves.push_back( node.first )
+			idx_of_leaves.push_back( node.first );
 		}
 	}
 
