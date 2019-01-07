@@ -1,5 +1,6 @@
 // akemi's Nodeless Solver (C) 2018 Fixstars Corp.
 // g++ akemi.cpp -std=c++14 -o akemi -O3 -Wall -Wno-unused-but-set-variable
+#define DEBUG
 
 #include <iostream>
 #include <fstream>
@@ -73,6 +74,17 @@ public:
 			}
 		}
 
+		bool is_path_graph(int cur, vector<bool>& used){	//頂点curを含む連結なグラフはpath_graphかどうか
+			bool ret = true;
+			if( nodes[cur].neighbors.size()>2 )return false;
+			for(const auto& node: nodes[cur]->neighbors){
+				if( used[node->idx]==true )return false;
+				used[node->idx] = true;
+				ret &= is_path_graph(node->idx, used);
+			}
+			return ret;
+		}
+
 		void add_node(const int idx) {
 			nodes_t::iterator it = nodes.find(idx);
 			if (it == nodes.end()) {
@@ -97,12 +109,19 @@ std::vector<int> initial_positions(Graph* G, int num_units)
 {
 	std::vector<int> positions;
 
+	assert( G->num_groups()==1 );	//入力されるグラフは連結と仮定
+
+	vector<bool> used(G->nodes.size());
+	assert( G->is_path_graph(0)==false );	//入力されるグラフはpath_graphではない
+
 	vector<int> idx_of_leaves;
 	for(const auto &node : G->nodes){
 		if( node.second->neighbors.size()<=1 ){
 			idx_of_leaves.push_back( node.first )
 		}
 	}
+
+
 
 
 
