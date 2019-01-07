@@ -1,7 +1,7 @@
 // akemi's Nodeless Solver (C) 2018 Fixstars Corp.
 // g++ akemi.cpp -std=c++14 -o akemi -O3 -Wall -Wno-unused-but-set-variable
 #define DEBUG
-
+#define DEBUG_PRINT
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -56,31 +56,27 @@ private:
 public:
 	typedef std::map<int, Node*> nodes_t;
 		nodes_t nodes;
-		int groups;
-
-		Graph(){
-			groups = -1;
-		};
+		vector<int> representative_idx_of_each_groups;
+		map<int,int> degree;
 
 		int num_groups(){
-			if(groups!=-1)return groups;
+			if( representative_idx_of_each_groups.size()!=0 )return representative_idx_of_each_groups.size();
 			else{
 				vector<bool> used(nodes.size(),false);
-				groups = 0;
 				for(const auto& node: nodes){
 					if( used[node.first] == false ){
-						groups++;
+						representative_idx_of_each_groups.push_back( node.first );
 						used[node.first] = true;
 						count_groups_dfs(node.first, used);
 					}
 				}
 			}
-			return groups;
+			return representative_idx_of_each_groups.size();
 		}
 
 		bool is_path_graph(int cur, vector<bool>& used){	//i頂点curを含む連結なグラフはpath_graphかどうか
 			bool ret = true;
-			if( nodes[cur]->neighbors.size()>2 )return false;
+			if( degree[cur]>2 )return false;
 			for(const auto& node: nodes[cur]->neighbors){
 				if( used[node->idx]==true )return false;
 				used[node->idx] = true;
@@ -95,6 +91,11 @@ public:
 					Node *node;
 					node = new Node(idx, -1, 0);
 					nodes[idx] = node;
+
+					//新しく追加された頂点の次数は0
+					degree[idx] = 0;
+					assert( nodes[idx]->neighbors.size()==0 );
+
 					return;
 			}
 			std::cerr << "Node already exists!" << std::endl;
@@ -105,6 +106,10 @@ public:
 			Node* t = (nodes.find(to)->second);
 			f->neighbors.push_back(t);
 			t->neighbors.push_back(f);
+
+			//辺を追加することで隣接する2つの頂点の次数がそれぞれ増加する
+			degree[f->idx]++;
+			degree[t->idx]++;
 		}
 		int num_nodes() const { return static_cast<int>(nodes.size()); }
 };
@@ -113,22 +118,67 @@ std::vector<int> initial_positions(Graph* G, int num_units)
 {
 	std::vector<int> positions;
 
-	assert( G->num_groups()==1 );	//入力されるグラフは連結と仮定
-
-	vector<bool> used(G->nodes.size());
-	assert( G->is_path_graph(0, used)==false );	//入力されるグラフはpath_graphではない
+	#ifdef DEBUG
+		vector<bool> used(G->nodes.size());
+		for( const auto& idx: G->representative_idx_of_each_groups ){
+			assert( G->is_path_graph(idx, used)==false );	//入力される全てのグラフはpath_graphではない
+		}
+	#endif
 
 	vector<int> idx_of_leaves;
 	for(const auto &node : G->nodes){
-		if( node.second->neighbors.size()<=1 ){
+		if( G->degree[node.first]<=1 ){
 			idx_of_leaves.push_back( node.first );
 		}
 	}
 
+	if( idx_of_leaves.size()!=0 ){
+		for(const auto& idx: idx_of_leaves){
+			//手駒が無くなったらbreak
+			if( num_units - positions.size() == 0 )break;
+			int prev = -1;
+			int cur = idx;
+			if( G->degree[cur]==0 )continue;
 
+			assert( G->degree[cur]==1 );
+			while( G->degree[cur]<=2 ){
+				if( G->degree[cur]==1 || G->nodes[cur]->neighbors[1]->idx == prev ){
+					prev = cur;
+					cur = G->nodes[cur]->neighbors[0]->idx;
+				}else{
+					if( G->nodes[cur]->neighbors[0]->idx != prev ){
+						cerr<<G->nodes[cur]->neighbors[0]->idx<<" "<<G->nodes[cur]->neighbors[1]->idx<<" "<<prev<<endl;
+					}
+					assert( G->nodes[cur]->neighbors[0]->idx == prev );
+					prev = cur;
+					cur = G->nodes[cur]->neighbors[1]->idx;
+				}
+			}
+			positions.push_back(cur);
+		}
+	}
 
+	//余ってたら、最後にpositionsにつっこんだ頂点にコマをすべて置く
+	int remains = num_units - positions.size();
+	for (int i = 0; i < remains; i++) {
+		if( positions.size()>=1 ){
+			positions.push_back(positions.front());
+		}else{
+			positions.push_back(0);
+		}
+	}
+	std::sort(positions.begin(), positions.end());
 
+	// #ifdef DEBUG_PRINT
+	// 	for (const auto& node : priority_nodes) {
+	// 		std::cerr << node.second->value << ", " << node.second->idx << ", " << node.second->neighbors.size() << ", " << node.second->player << std::endl; ///// debug
+	// 	}
+	// #endif // DEBUG_PRINT
 
+	assert( num_units == positions.size() );
+	return positions;
+}
+/*
 	std::vector<std::pair<int, Node*>> priority_nodes;
 
 	for (const auto& node : G->nodes) {
@@ -145,21 +195,9 @@ std::vector<int> initial_positions(Graph* G, int num_units)
 		positions.push_back(node.second->idx);
 		if (static_cast<int>(positions.size()) >= num_units) break;
 	}
-	//余ってたら、最後にpositionsにつっこんだ頂点にコマをすべて置く
-	int remains = num_units - positions.size();
-	for (int i = 0; i < remains; i++) {
-		positions.push_back(positions.front());
-	}
-	std::sort(positions.begin(), positions.end());
-
-#ifdef DEBUG_PRINT
-	for (const auto& node : priority_nodes) {
-		std::cerr << node.second->value << ", " << node.second->idx << ", " << node.second->neighbors.size() << ", " << node.second->player << std::endl; ///// debug
-	}
-#endif // DEBUG_PRINT
-
 	return positions;
-}
+*/
+
 
 void solver(Graph* G, int& src, int& dst, int& num)
 {
