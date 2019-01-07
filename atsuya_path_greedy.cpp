@@ -12,7 +12,7 @@
 
 #include "json.hpp"
 
-constexpr const char* version  = "0.04";
+constexpr const char* version	= "0.04";
 constexpr const char* revision = "a";
 constexpr const char* ver_date = "20181211";
 
@@ -30,47 +30,87 @@ void remove_newline(std::string& s)
 
 struct Node {
 	std::vector<Node*> neighbors;
-    int idx;
+	int idx;
 	int player;
 	int number;
 	int value;
 
-    Node(int idx, int player, int number) : idx(idx), player(player), number(number) {
+		Node(int idx, int player, int number) : idx(idx), player(player), number(number) {
 		value = 0;
 	}
 };
 
 class Graph {
+private:
+	void count_groups_dfs(int cur, vector<bool>& used){
+		for(const auto& node: nodes[cur]->neighbors){
+			if( used[node->idx] == false ){
+				used[node->idx] = true;
+				count_groups_dfs(node->idx, used);
+			}
+		}
+	}
 public:
 	typedef std::map<int, Node*> nodes_t;
-    nodes_t nodes;
+		nodes_t nodes;
 
-    void add_node(const int idx) {
-    	nodes_t::iterator it = nodes.find(idx);
-	    if (it == nodes.end()) {
-    	    Node *node;
-        	node = new Node(idx, -1, 0);
-        	nodes[idx] = node;
-        	return;
-    	}
-    	std::cerr << "Node already exists!" << std::endl;
-	}
-    void add_edge(const int from, const int to) {
-	    Node* f = (nodes.find(from)->second);
-	    Node* t = (nodes.find(to)->second);
-		f->neighbors.push_back(t);
-		t->neighbors.push_back(f);
-	}
-	int num_nodes() const { return static_cast<int>(nodes.size()); }
+		Graph(){
+			groups = -1;
+		};
+
+		int num_groups(){
+			if(groups!=-1)return groups;
+			else{
+				vector<bool> used(nodes.size(),false);
+				groups = 0;
+				for(const auto& node: nodes){
+					if( used[node.first] == false ){
+						gropus++;
+						used[node.first] = true;
+						count_groups_dfs(node.first, used);
+					}
+				}
+			}
+		}
+
+		void add_node(const int idx) {
+			nodes_t::iterator it = nodes.find(idx);
+			if (it == nodes.end()) {
+					Node *node;
+					node = new Node(idx, -1, 0);
+					nodes[idx] = node;
+					return;
+			}
+			std::cerr << "Node already exists!" << std::endl;
+		}
+
+		void add_edge(const int from, const int to) {
+			Node* f = (nodes.find(from)->second);
+			Node* t = (nodes.find(to)->second);
+			f->neighbors.push_back(t);
+			t->neighbors.push_back(f);
+		}
+		int num_nodes() const { return static_cast<int>(nodes.size()); }
 };
 
 std::vector<int> initial_positions(Graph* G, int num_units)
 {
 	std::vector<int> positions;
+
+	vector<int> idx_of_leaves;
+	for(const auto &node : G->nodes){
+		if( node.second->neighbors.size()<=1 ){
+			idx_of_leaves.push_back( node.first )
+		}
+	}
+
+
+
 	std::vector<std::pair<int, Node*>> priority_nodes;
 
 	for (const auto& node : G->nodes) {
 		int num_neighbors = node.second->neighbors.size();
+		//次数が低い頂点に隣接しており、かつ次数が高い頂点のスコアが高くなる
 		std::for_each(node.second->neighbors.begin(), node.second->neighbors.end(),
 			[num_neighbors](const auto& neighbor){ neighbor->value += 100 / num_neighbors; });
 	}
@@ -82,6 +122,7 @@ std::vector<int> initial_positions(Graph* G, int num_units)
 		positions.push_back(node.second->idx);
 		if (static_cast<int>(positions.size()) >= num_units) break;
 	}
+	//余ってたら、最後にpositionsにつっこんだ頂点にコマをすべて置く
 	int remains = num_units - positions.size();
 	for (int i = 0; i < remains; i++) {
 		positions.push_back(positions.front());
@@ -136,10 +177,10 @@ int main(int argc, char* argv[])
 		auto action = obj["action"];
 
 		if (action == "play") {
-      auto nodes(obj["nodes"]);
-      auto edges(obj["edges"]);
-      auto state(obj["state"]);
-      auto units(obj["units"]);
+			auto nodes(obj["nodes"]);
+			auto edges(obj["edges"]);
+			auto state(obj["state"]);
+			auto units(obj["units"]);
 
 			for (int i = 0; i < G->num_nodes(); i++) {
 				G->nodes[i]->player = state[i];
@@ -168,10 +209,10 @@ int main(int argc, char* argv[])
 			auto names(obj["names"]);
 			auto name(names[uid]);
 			auto num_units(obj["num_units"]);
-      auto nodes(obj["nodes"]);
-      auto edges(obj["edges"]);
-      auto state(obj["state"]);
-      auto units(obj["units"]);
+			auto nodes(obj["nodes"]);
+			auto edges(obj["edges"]);
+			auto state(obj["state"]);
+			auto units(obj["units"]);
 
 			for (const auto& node : nodes) {
 				G->add_node(node);
